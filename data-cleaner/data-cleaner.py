@@ -9,14 +9,17 @@ if len(sys.argv) < 4:
 
 input_file_path = sys.argv[1]
 output_file_path = sys.argv[2]
-mode = sys.argv[3]
+mode_input = sys.argv[3]
 
-if "word-opt" in mode:
-    mode = 1
-elif "title-date" in mode:
-    mode = 2
+modes = ["word-opt", "title-date", "title-author"]
+mode = 0
+
+for m in modes:
+    mode += 1
+    if m == mode_input:
+        break
 else:
-    print("Argument 3, incorrect mode")
+    print("Incorrect mode: choose from " + str(modes))
     sys.exit(1)
 
 with open(input_file_path, "r", encoding="utf-8") as infile, \
@@ -54,9 +57,11 @@ with open(input_file_path, "r", encoding="utf-8") as infile, \
                 elif not seen_first_letter and char == "#":
                     break # prevents titles or headers from being added
 
-            if not word.strip():
+            if word.strip():
                 writer.writerow([id, word, opt])
                 id += 1
+            else:
+                print(word + ", " + opt)
 
     # Mode 2, Input Parse rules
         # for the string:
@@ -66,7 +71,7 @@ with open(input_file_path, "r", encoding="utf-8") as infile, \
         # include spaces only between words, not on the ends or in the year
         # date must be in a separate field but is not necessary, some lines will be missing years which should still be written just as nulls
         # follow as closely the parsing rules for the singular word list to csv
-    if mode == 2:
+    elif mode == 2:
         writer.writerow(["id", "title", "year"])
 
         #keep = {",", ":", "!", "'", "."}
@@ -92,6 +97,35 @@ with open(input_file_path, "r", encoding="utf-8") as infile, \
             if title.strip():
                 writer.writerow([id, title, year])
                 id += 1
+            else:
+                print(title + ", " + year)
+
+    # Mode 3, title-author
+        # the date section is optional
+        # strings are deliminated by dashes
+    elif mode == 3:
+        writer.writerow(["id", "title", "author"])
+
+        for line in infile:
+            title = ""
+            author = ""
+            deliminater = ['-', '—']
+            author_flag = False
+
+            if line[0] != '#':
+                for char in line:
+                    if char in deliminater:
+                        author_flag = True
+                    elif not author_flag:
+                        title += char
+                    else:
+                        author += char
+
+            if title.strip() and author.strip():
+                writer.writerow([id, title, author])
+                id += 1
+            else:
+                print(line)
 
 print("Successfully exported ", id, " lines to ", output_file_path, " in mode ", mode, ".")
 
