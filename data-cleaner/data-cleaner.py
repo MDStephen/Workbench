@@ -1,6 +1,7 @@
 # Data Cleaner
 import csv
 import sys
+import re
 
 # catch no argument case
 if len(sys.argv) < 4:
@@ -11,7 +12,7 @@ input_file_path = sys.argv[1]
 output_file_path = sys.argv[2]
 mode_input = sys.argv[3]
 
-modes = ["word-opt", "title-date", "title-author"]
+modes = ["word-opt", "title-date", "title-author", "stripped-link-description", "checkmark-description"]
 mode = 0
 
 for m in modes:
@@ -60,8 +61,8 @@ with open(input_file_path, "r", encoding="utf-8") as infile, \
             if word.strip():
                 writer.writerow([id, word, opt])
                 id += 1
-            else:
-                print(word + ", " + opt)
+            elif line:
+                print(line)
 
     # Mode 2, Input Parse rules
         # for the string:
@@ -97,8 +98,8 @@ with open(input_file_path, "r", encoding="utf-8") as infile, \
             if title.strip():
                 writer.writerow([id, title, year])
                 id += 1
-            else:
-                print(title + ", " + year)
+            elif line:
+                print(line)
 
     # Mode 3, title-author
         # the date section is optional
@@ -124,7 +125,69 @@ with open(input_file_path, "r", encoding="utf-8") as infile, \
             if title.strip() and author.strip():
                 writer.writerow([id, title, author])
                 id += 1
+            elif line:
+                print(line)
+
+    # Mode 4, stripped-link-description
+        # strip all markdown styling
+        # format compatible with links
+        # output id, link, description
+        # link can be null
+    elif mode == 4:
+        writer.writerow(["id", "link", "description"])
+        link_pattern = re.compile(r'https?://[^\s)]+')
+
+        for line in infile:
+            line = line.strip()
+
+            if not line:
+                continue
+
+            match = link_pattern.search(line)
+
+            if match:
+                link = match.group(0)
+                if '(' in link:
+                    link += ')'
             else:
+                link = ""
+
+            description = line
+            description = re.sub(r'\[(.*?)\]\(https?://[^\s)]+\)', r'\1', description)
+            description = description.replace(link, "")
+            for char in ['>', '-', '–', '*', '<', '>', '[', ']', ';']:
+                description = description.replace(char, '')
+
+            description = re.sub(r'\(\s*\)', '', description)
+            description = ' '.join(description.split())
+            if description.strip():
+                writer.writerow([id, link, description])
+                id += 1
+            elif line:
+                print(line)
+
+    # Mode 5, checkmark-description
+        # strip all markdown styling
+        # return the checkmark status [true, false] and the description
+    elif mode == 5:
+        writer.writerow(["id", "completed", "description"])
+
+        for line in infile:
+            check = "false"
+            description = ""
+
+            if line[0] == '#':
+                continue
+
+            if "[x]" in line:
+                check = "true"
+
+            description = line[5:]
+
+            if description:
+                writer.writerow([id, check, description])
+                id += 1
+            elif line:
                 print(line)
 
 print("Successfully exported ", id, " lines to ", output_file_path, " in mode ", mode, ".")
